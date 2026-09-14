@@ -9,6 +9,9 @@ futures — built, tested, honestly measured, and running live on virtual capita
 > drawdown**. It runs two $10,000 paper accounts on a daily schedule, one of which tracks the
 > original design and one the improved design, so improvements are measured rather than assumed.
 
+📄 **[Case study / interview walkthrough →](CASE_STUDY.md)** — problem, approach, findings, and
+what I'd do differently.
+
 ---
 
 ## Headline results
@@ -76,8 +79,8 @@ never compute. It was signal. Reporting this honestly is the point.
 
 ## The journey
 
-Full detail in [`research/REPORT.md`](research/REPORT.md) (Appendices I–V) and
-[`TIMELINE.md`](TIMELINE.md).
+Full detail in [`research/REPORT.md`](research/REPORT.md) (Appendices I–V), the build history in
+[`TIMELINE.md`](TIMELINE.md), and an interview-oriented walkthrough in [`CASE_STUDY.md`](CASE_STUDY.md).
 
 | Wave | What was tested | Outcome |
 |---|---|---|
