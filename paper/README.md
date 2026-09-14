@@ -20,17 +20,32 @@ After the risk layer below, live exposure starts smaller than the backtest.
 
 ---
 
-## Two accounts (A/B)
+## Three desks
 
-The desk runs **two independent $10,000 paper accounts side by side**, same universe, same costs,
-same risk shell — so the only difference is the signal:
-
-| Profile | Signal | Circuit breaker |
+| Profile | What it is | Circuit breaker |
 |---|---|---|
-| `baseline` | ensemble momentum (14/21/30/45/60d, risk-adjusted) | 15% |
-| `wave3` | same momentum **− funding tilt**, overlaid with a **soft BTC regime filter** (full size above the 200-day MA, half below) | 20% |
+| `baseline` | ensemble momentum (14/21/30/45/60d, risk-adjusted), 10 long / 10 short | 15% |
+| `wave3` | the same momentum **− funding tilt**, overlaid with a **soft BTC regime filter** (full size above the 200-day MA, half below) and a **risk-managed volatility overlay** | 20% |
+| `copytrader` | a **replay of a Binance lead trader's published trade log**, not a live strategy — see below | — |
 
-State lives in `paper/state/<profile>/`. Neither account ever resets, and they do not share capital.
+The two strategy desks are **independent $10,000 paper accounts**, same universe, same costs, same
+risk shell, so the only difference is the signal. State lives in `paper/state/<profile>/`; neither
+account ever resets and they do not share capital.
+
+### The `copytrader` desk
+
+Binance's own Mock Copy only runs inside their platform, so this desk does the next best thing: it
+replays the lead trader's published trades into a virtual copier account, charging **0.1% per side
+of lag slippage** and Binance's **10% profit share**, then charts it beside our two strategies.
+
+Refresh it by re-copying the trader's trade history into `binance_trades.md` and re-running the
+engine. It reads realised trades only — the trader's *open* positions are invisible, which is where
+a hold-until-reversion strategy keeps its real risk.
+
+It prints a capacity caveat every run, because it matters: the replayed position size grows with
+the account, while the leader's actual median trade is tiny. **The edge is not available at size**,
+which is why live copiers see far less than the headline ROI.
+
 
 ---
 

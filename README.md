@@ -111,21 +111,30 @@ paper/                      Live paper-trading desk (profile-aware, multi-accoun
   broker.py                 PaperBroker behind a swappable Broker interface
   store.py                  Persistent account state + trade/daily/target/event logs
   engine.py                 Daily engine: mark-to-market → target → risk → rebalance → log
-  dashboard.py              Streamlit desk: A/B overview, positions, trade log, drawdown
+  copytrader.py             Replays a lead trader's log into a virtual copier account
+  dashboard.py              Streamlit desk: three-way overview, positions, trades, drawdown
 
 research/                   Research pipeline
   data_fetch.py             Universe + klines + funding
   bulk_download.py          864 symbols incl. delisted (REST + archive fallback)
+  bulk_full.py              Same, keeping order-flow columns
   backtest.py               Cost-aware backtester and metrics
   strategy_zoo.py           Wave 1: 25 signals
   strategy_zoo2.py          Wave 2: 25 more incl. order flow
   survivorship.py           Point-in-time universe backtest
+  combo_final.py            Wave 3: combinations -> the final candidate
+  long_bias.py              Wave 4: long bias, risk-managed momentum
+  gpu_model.py              Wave 4: PyTorch walk-forward MLP on GPU
+  capacity_test.py          Does model size help? (no)
+  calendar_effects.py       Wave 5: day-of-week / turn-of-month (dead)
   risk_layer.py             Risk-layer ablation
   margin_stress.py          Short-leg squeeze / liquidation analysis
-  gpu_model.py              PyTorch walk-forward MLP on GPU
-  capacity_test.py          Does model size help? (no)
-  luck_simulation.py        Why copy-trading leaderboards show +300%/month
-  REPORT.md                 Full findings, all five waves
+  luck_simulation.py        Why leaderboards show +300%/month (survivorship)
+  copy_trader_analysis.py   Parses & audits a lead trader's published trade log
+  hold_loser_simulation.py  The "no stop, hold until it recovers" family, 7 years
+  trend_exit_experiment.py  Take-profit vs trend-death exit (let winners run)
+  trend_veto.py             Per-coin trend veto on wave3 (rejected)
+  REPORT.md                 Full findings, Appendices I–V
 
 crypto_live_bot.py          Original 1-minute scalper (the starting point, and why it failed)
 dashboard.py                Original Streamlit UI

@@ -1,0 +1,17 @@
+{
+  "profile": "copytrader",
+  "strategy": "COPY_SIMULATION",
+  "label": "Copy-trader simulation (lead-trader log replay)",
+  "initial_capital": 10000.0,
+  "cash": 104340.84032819458,
+  "positions": {},
+  "avg_entry": {},
+  "start_utc": "2026-06-15 18:50:35",
+  "last_run_utc": "2026-09-14 17:04:11",
+  "last_run_date": "2026-09-14",
+  "high_water_mark": 104340.84032819458,
+  "breaker_active": false,
+  "runs": 1,
+  "source_trades": 200,
+  "note": "Replay of the lead trader's published log with lag slippage + 10% profit share. Realised PnL only; their open positions are not visible."
+}

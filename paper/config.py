@@ -4,7 +4,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_ROOT = os.path.join(BASE_DIR, "state")
 os.makedirs(STATE_ROOT, exist_ok=True)
 
-PROFILES = ("baseline", "wave3")
+PROFILES = ("baseline", "wave3", "copytrader")
 
 INITIAL_CAPITAL = 10_000.0
 EXPERIMENT_DAYS = 30
@@ -44,6 +44,7 @@ PROFILE_CFG = {
     "baseline": {
         "label": "Baseline (ensemble momentum)",
         "strategy": "XS_MOMENTUM_ENSEMBLE",
+        "kind": "strategy",
         "funding_tilt": False,
         "regime": False,
         "risk_managed": False,
@@ -53,9 +54,20 @@ PROFILE_CFG = {
     "wave3": {
         "label": "Wave3 (momentum - funding tilt, soft BTC regime, risk-managed)",
         "strategy": "XS_MOMENTUM_FUNDING_REGIME_RM",
+        "kind": "strategy",
         "funding_tilt": True,
         "regime": True,
         "risk_managed": True,
+        "vol_target": None,
+        "dd_breaker_trigger": 0.20,
+    },
+    "copytrader": {
+        "label": "Copy-trader simulation (lead-trader log replay)",
+        "strategy": "COPY_SIMULATION",
+        "kind": "copy_sim",
+        "funding_tilt": False,
+        "regime": False,
+        "risk_managed": False,
         "vol_target": None,
         "dd_breaker_trigger": 0.20,
     },

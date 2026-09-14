@@ -75,7 +75,7 @@ def check(profile):
 
     if equity is not None and equity <= 0:
         problems.append("equity <= 0")
-    if n_pos == 0:
+    if n_pos == 0 and cfg.cfg_for(profile).get("kind") != "copy_sim":
         problems.append("no open positions")
 
     if problems:

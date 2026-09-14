@@ -40,6 +40,17 @@ def collect_funding_rates(symbols, since_dt):
 
 def run_once(profile, force=False, dry_run=False):
     pcfg = cfg.cfg_for(profile)
+
+    if pcfg.get("kind") == "copy_sim":
+        from . import copytrader
+        acc = copytrader.simulate()
+        if acc is None:
+            print(f"[{profile}] no trade log found ({copytrader.TRADE_FILE}); skipping")
+            return None
+        print(f"[{profile}] replayed {acc['source_trades']} copied trades | "
+              f"equity ${acc['cash']:,.2f} ({(acc['cash']/acc['initial_capital']-1)*100:+.2f}%)")
+        return acc
+
     acc = store.load_account(profile)
     today = _run_date()
     if not force and acc.get("last_run_date") == today:

@@ -58,7 +58,8 @@ st.sidebar.info("Dollar-neutral cross-sectional momentum on Binance USDT-M perps
                 "wave3 (funding tilt + soft BTC regime). Virtual money, no exchange orders.")
 
 st.title("CRYPTOFORGE :: PAPER TRADING DESK")
-st.caption("A/B: baseline vs wave3 — same universe, same costs, same risk shell.")
+st.caption("Three desks: baseline momentum vs wave3 (funding tilt + regime + risk management) "
+           "vs a replay of a Binance lead trader's actual trades.")
 
 # ---------- A/B overview ----------
 overview = []
@@ -74,8 +75,8 @@ for p in cfg.PROFILES:
                      "maxDD_%": (d["equity"] / d["equity"].cummax() - 1).min() * 100,
                      "runs": a.get("runs", len(d))})
 ov = pd.DataFrame(overview)
-cA, cB = st.columns(2)
-for col, row in zip((cA, cB), ov.to_dict("records")):
+cols = st.columns(len(cfg.PROFILES))
+for col, row in zip(cols, ov.to_dict("records")):
     with col:
         st.subheader(row["account"])
         if row.get("equity") is None:
