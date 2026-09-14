@@ -1,0 +1,26 @@
+{
+    "BTCUSDT": {
+        "status": "FLAT",
+        "entry_price": 0.0,
+        "highest_price": 0.0,
+        "trailing_stop": 0.0
+    },
+    "ETHUSDT": {
+        "status": "FLAT",
+        "entry_price": 0.0,
+        "highest_price": 0.0,
+        "trailing_stop": 0.0
+    },
+    "SOLUSDT": {
+        "status": "FLAT",
+        "entry_price": 0.0,
+        "highest_price": 0.0,
+        "trailing_stop": 0.0
+    },
+    "BNBUSDT": {
+        "status": "FLAT",
+        "entry_price": 0.0,
+        "highest_price": 0.0,
+        "trailing_stop": 0.0
+    }
+}

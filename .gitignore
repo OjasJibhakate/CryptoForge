@@ -1,0 +1,49 @@
+# ---------------------------------------------------------------------------
+# Data — large and fully regenerable from the public Binance API / archive.
+# See research/data_fetch.py and research/bulk_download.py.
+# ---------------------------------------------------------------------------
+Crypto_Historical_Vault/
+binance_raw_zips/
+research/data/
+paper/cache/
+logs/
+
+# ---------------------------------------------------------------------------
+# Secrets — never commit credentials
+# ---------------------------------------------------------------------------
+.env
+*.env
+secrets.*
+*.pem
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ---------------------------------------------------------------------------
+# Model / binary artifacts (regenerate with `py crypto_metabrain.py`)
+# ---------------------------------------------------------------------------
+*.pkl
+*.zip
+*.h5
+*.pt
+*.onnx
+
+# ---------------------------------------------------------------------------
+# Tooling & editor
+# ---------------------------------------------------------------------------
+.commandcode/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
