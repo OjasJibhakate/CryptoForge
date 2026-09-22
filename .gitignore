@@ -7,6 +7,7 @@ binance_raw_zips/
 research/data/
 paper/cache/
 logs/
+paper/state_backup_*/
 
 # ---------------------------------------------------------------------------
 # Secrets — never commit credentials

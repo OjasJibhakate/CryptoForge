@@ -130,7 +130,31 @@ py -m paper.engine --status                      # baseline summary
 py -m paper.engine --profile wave3 --status      # wave3 summary
 py -m paper.engine --all --status                # both
 py -m paper.engine --all --force                 # run now even if already run today
+py -m paper.backfill                             # replay missed days after downtime
 ```
+
+### Backfilling missed days
+
+If the machine was off and days were skipped, run:
+
+```bash
+py -m paper.backfill
+```
+
+It detects dates missing from `daily.csv` and replays each one the way
+`engine.run_once` would have, with three honest differences:
+
+- **Fills execute at the day's last closed daily close**, not the live tick
+  price the engine would have seen (a few bps of difference, unavoidable).
+- **Signals only use closes available on that date** — same as live, no look-ahead.
+- **Funding uses real historical funding payments** inside each run window, and
+  the first live row after a gap gets its `funding_pnl` trimmed so payments
+  credited by backfilled rows are not counted twice
+  (logged as a `BACKFILL_ADJUST` event — equity stays untouched).
+
+Existing live rows are never re-priced. Nothing in `account.json` changes;
+the book still matches the last live run. Backups land in `state_backup_*`;
+`--to YYYY-MM-DD` limits the replay range.
 
 ### API rate limits
 
