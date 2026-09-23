@@ -764,3 +764,70 @@ honest path to triple-digit CAGR, and it costs exactly what theory says it costs
 Files: `crazy_sweep.py`, `probe_positioning.py`, `oi_positioning_test.py`,
 `oi_append_test.py`, `crazy_leverage.py` (+ `research/data/crazy_sweep.csv`,
 `crazy_best_net.csv`)
+
+---
+
+# Appendix VII — Wave 7: Literature-Led Hunt (CTREND, squeeze, lottery, value)
+
+*Session of 2026-09-23. The user asked to keep hunting without stopping. Three web
+rounds grounded this wave in published work: the CTREND multi-horizon trend factor
+(JFQA), the crypto idiosyncratic-volatility literature, and session-seasonality
+trader research. ~23 more mechanisms on the same panel/costs/split. Files:
+`wave7_sweep.py`, `wave7_followup.py` (+ `research/data/wave7_sweep.csv`).*
+
+## 1. The sweep
+
+| Family | Best variant | IS | OOS | Verdict |
+|---|---|---|---|---|
+| CTR multi-horizon MA-spread stack | plain stack | **1.24** | **0.94** | **consistent — see §2** |
+| CTR + volume weight | vol-weighted | 1.12 | 0.85 | consistent, weaker |
+| BETA high-beta + uptrend | beta + trend | 0.86 | 0.32 | clears nothing |
+| SQZ squeeze-chase (high funding + rally) | fz>1.5, 7d | −0.05 | −0.24 | dead — chasing crowded shorts loses |
+| SQZ fade exhausted squeeze | crowded + stalled | 0.31 | 0.39 | clears nothing |
+| SES session proxies (daily bars) | range-expansion chase | −0.04 | −0.42 | dead |
+| LOT lottery (MAX, skew, fresh highs) | all variants | −0.45..+0.69 | −0.44..−0.09 | dead |
+| VAL deep value / washed-out funding | all variants | −0.38..−0.01 | −0.86..−0.50 | dead, decisively |
+| IVO idiosyncratic vol | high ivol + trend | 0.69 | −0.09 | dead OOS |
+| LVO / BETA | low vol, low beta | −0.49/−0.41 | +0.07/−0.44 | dead |
+
+**Consistent (IS>0.5 AND OOS>0.5): the two CTR stacks only.** Everything else —
+squeeze-chasing, lottery, deep value, idiosyncratic vol — fails out-of-sample,
+several decisively (value variants OOS −0.50..−0.86: catching falling knives in
+crypto keeps bleeding, exactly as the hold-loser simulation predicted).
+
+## 2. Is CTR a new signal? No — momentum in a moving-average costume
+
+Follow-up (`wave7_followup.py`):
+
+| | mom sleeve (wave3) | CTR sleeve | 50/50 blend |
+|---|---|---|---|
+| Full Sharpe | **1.40** | 1.09 | 1.40 |
+| OOS Sharpe | **1.70** | 0.94 | 1.50 |
+| at 40% DD | **60.4%** | 45.2% | 61.0% |
+| Turnover | 0.27 | **0.62** | 0.45 |
+
+Return correlation CTR-vs-momentum: **+0.58 IS, +0.58 OOS**. The blend adds nothing
+(1.40 vs 1.40). Cost tolerance decides it: at 20+10 bps CTR goes **negative**
+(−0.21/−15%) while momentum holds 0.81/+27% — the 2.3x turnover burns the edge
+first. CTR's 2022–23 sub-period is also negative (−0.18) where momentum stayed
+positive. **Verdict: do not append. The MA-spread stack is a costlier, weaker
+re-expression of the momentum we already trade.**
+
+That closes the loop on the literature hunt: CTREND's construction is sound, but
+on our panel at retail costs it is momentum with extra turnover. The published
+result survives costs on 3,000+ coins including micro-caps we cannot trade; on a
+liquid-PIT universe at 5+2 bps it loses to plain formation-period momentum.
+
+## 3. Net of wave 7
+
+| | Before | After |
+|---|---|---|
+| Mechanisms tested (all waves) | ~85 | **~108** |
+| Consistent new signals | 0 | **0 (CTR is momentum, not new)** |
+| Standing | wave3 live, OI archive | unchanged |
+
+Sources:
+- [A Trend Factor for the Cross Section of Cryptocurrency Returns (JFQA)](https://www.cambridge.org/core/journals/journal-of-financial-and-quantitative-analysis/article/trend-factor-for-the-cross-section-of-cryptocurrency-returns/4C1509ACBA33D5DCAF0AC24379148178)
+- [Machine learning and the cross-section of cryptocurrency returns](https://www.sciencedirect.com/science/article/pii/S1057521924001765)
+- [Is idiosyncratic volatility priced in cryptocurrency markets?](https://www.sciencedirect.com/science/article/pii/S0275531920301926)
+- [Revisiting the low-volatility anomaly in cryptocurrency markets](https://www.sciencedirect.com/science/article/pii/S1544612326003818)
