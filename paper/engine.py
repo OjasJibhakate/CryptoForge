@@ -112,8 +112,39 @@ def run_once(profile, force=False, dry_run=False):
     fills, _ = broker.rebalance(risked, prices)
     equity_after = broker.equity(prices)
     fees = sum(f["fee"] + f["slippage"] for f in fills)
+    fee_pnl = sum(f["fee"] for f in fills)
+    slip_pnl = sum(f["slippage"] for f in fills)
     n_long = sum(1 for q in broker.positions().values() if q > 0)
     n_short = sum(1 for q in broker.positions().values() if q < 0)
+
+    # Diagnostics only: leg P&L from fills, concentration from current notionals.
+    # No strategy, sizing, or cost logic is touched by these numbers.
+    prev_pos = dict(acc.get("positions", {}))
+    prev_avg = dict(acc.get("avg_entry", {}))
+    day_pnl = {}
+    for s, q0 in prev_pos.items():
+        px = prices.get(s)
+        avg = prev_avg.get(s)
+        if not px or not avg or q0 == 0:
+            continue
+        day_pnl[s] = q0 * (px - avg)
+    long_pnl = sum(v for s, v in day_pnl.items() if prev_pos.get(s, 0) > 0)
+    short_pnl = sum(v for s, v in day_pnl.items() if prev_pos.get(s, 0) < 0)
+    notionals = {s: abs(q) * prices.get(s, 0.0)
+                 for s, q in broker.positions().items() if prices.get(s)}
+    tot_notion = sum(notionals.values())
+    ranked = sorted(notionals.values(), reverse=True)
+    cum = pd.Series(ranked).cumsum() / tot_notion if tot_notion > 0 else pd.Series([0])
+    top1 = float(cum.iloc[0]) if len(cum) > 0 else 0.0
+    top3 = float(cum.iloc[2]) if len(cum) > 2 else float(cum.iloc[-1]) if len(cum) else 0.0
+    top5 = float(cum.iloc[4]) if len(cum) > 4 else float(cum.iloc[-1]) if len(cum) else 0.0
+    turnover = sum(abs(f["notional"]) for f in fills) / equity_after if equity_after > 0 else 0.0
+    margin_util = broker.gross_notional(prices) / equity_after if equity_after > 0 else 0.0
+    missing = sorted(set(broker.positions()) - set(rates)) if rates else sorted(broker.positions())
+    if missing:
+        store.log_event(profile, "MISSING_FUNDING",
+                        f"{len(missing)} held symbols had no funding observation this run "
+                        f"(treated as 0.0): {','.join(missing[:10])}")
 
     acc["cash"] = broker.cash
     acc["positions"] = {k: v for k, v in broker.positions().items() if abs(v) > 0}
@@ -132,6 +163,12 @@ def run_once(profile, force=False, dry_run=False):
         "net_notional": broker.net_notional(prices),
         "n_long": n_long, "n_short": n_short,
         "funding_pnl": funding_pnl, "fees": fees,
+        "fee_pnl": fee_pnl, "slip_pnl": slip_pnl,
+        "long_pnl": long_pnl, "short_pnl": short_pnl,
+        "spread_pnl": long_pnl + short_pnl,
+        "turnover": turnover, "margin_util": margin_util,
+        "top1_share": top1, "top3_share": top3, "top5_share": top5,
+        "missing_funding": ",".join(missing[:10]),
         "drawdown": rinfo["drawdown"], "breaker": rinfo["breached"],
         "vol_scale": rinfo["vol_scale"], "gross_scale": rinfo["gross_scale"],
         "return_pct": (equity_after / acc["initial_capital"] - 1.0),

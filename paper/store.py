@@ -66,13 +66,23 @@ def log_daily(profile, snap):
     _append(path,
             ["date", "equity", "cash", "gross_notional", "net_notional",
              "n_long", "n_short", "funding_pnl", "fees", "drawdown", "breaker",
-             "vol_scale", "gross_scale", "return_pct"],
+             "vol_scale", "gross_scale", "return_pct", "fee_pnl", "slip_pnl",
+             "long_pnl", "short_pnl", "spread_pnl", "turnover",
+             "margin_util", "top1_share", "top3_share", "top5_share",
+             "missing_funding"],
             [snap["date"], round(snap["equity"], 4), round(snap["cash"], 4),
              round(snap["gross_notional"], 4), round(snap["net_notional"], 4),
              snap["n_long"], snap["n_short"], round(snap["funding_pnl"], 6),
              round(snap["fees"], 6), round(snap["drawdown"], 6),
              int(snap["breaker"]), round(snap["vol_scale"], 4),
-             round(snap["gross_scale"], 4), round(snap["return_pct"], 6)])
+             round(snap["gross_scale"], 4), round(snap["return_pct"], 6),
+             round(snap.get("fee_pnl", 0.0), 6), round(snap.get("slip_pnl", 0.0), 6),
+             round(snap.get("long_pnl", 0.0), 6), round(snap.get("short_pnl", 0.0), 6),
+             round(snap.get("spread_pnl", 0.0), 6), round(snap.get("turnover", 0.0), 6),
+             round(snap.get("margin_util", 0.0), 6),
+             round(snap.get("top1_share", 0.0), 6), round(snap.get("top3_share", 0.0), 6),
+             round(snap.get("top5_share", 0.0), 6),
+             snap.get("missing_funding", "")])
 
 
 def log_targets(profile, run_date, weights, prices):
