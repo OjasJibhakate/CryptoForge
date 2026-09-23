@@ -1,19 +1,21 @@
 # CryptoForge Research — Findings (v2, survivorship- and funding-corrected)
 
-**Date:** 2026-09-13
+**Date:** 2026-09-13 (waves 1–5); waves 6–7 added 2026-09-22/23
 **Market:** Binance USDT-M perpetual futures. Daily bars, 2019-09-08 → 2026-09-13.
 **Costs:** 5 bps taker + 2 bps slippage **per side** (14 bps round trip), applied on turnover.
 **Risk basis:** all results also shown scaled to a **40% max-drawdown** budget.
 **Holdout:** everything before 2024-01-01 is in-sample; 2024-01-01 onward was never used for selection.
+**Scoreboard:** ~108 mechanisms tested, 1 live book. Every one mapped in [STRATEGIES.md](STRATEGIES.md).
 
 ---
 
 ## TL;DR
 
-1. **No 300%/month strategy exists.** Reproducible edges in crypto are single or low-double-digit % per year unlevered, or a bit more with leverage and real drawdowns.
+1. **No 300%/month strategy exists.** Reproducible edges in crypto are single or low-double-digit % per year unlevered, or a bit more with leverage and real drawdowns. (~108 mechanisms tested; the kill rate is the evidence.)
 2. **Your 1-minute scalper is structurally negative**, not badly tuned. A 0.5% target with 0.10% round-trip fees needs a **>60% win rate** to break even. (Details in the "scalp math" section.)
-3. **The robust edge: cross-sectional momentum** — long/short altcoin basket, dollar-neutral, daily rebalance.
+3. **The robust edge: cross-sectional momentum** — long/short altcoin basket, dollar-neutral, daily rebalance. The only family positive in every sub-period.
 4. **Both requested fixes were done and the edge survived.** Correcting survivorship *improved* it; funding was audited and capped to realistic levels rather than taken at face value.
+5. **Stock-market edges do not port to crypto.** Five live equity strategies (gap fades, crash fades, slow momentum) all die on perps — crypto never closes, so there is no overnight gap to fade. (Appendix VI.)
 
 ---
 

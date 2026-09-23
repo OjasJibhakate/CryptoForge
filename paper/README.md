@@ -1,7 +1,8 @@
 # CryptoForge Paper Desk
 
 A paper-trading bot that runs the researched strategy — **dollar-neutral cross-sectional momentum**
-on Binance USDT-M perpetual futures — against a **persistent $10,000 virtual account** for one month.
+on Binance USDT-M perpetual futures — against **persistent $10,000 virtual accounts** for one month.
+Day 11 (2026-09-23): baseline **+6.4%**, wave3 **+9.4%**. Judge at month-end.
 
 No exchange orders are ever placed. It reads public market data only.
 

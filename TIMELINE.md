@@ -144,19 +144,52 @@ baseline keeps running untouched as the control.
 
 ---
 
-## Current state
+## Current state (day 11 of 30, 2026-09-23)
 
-| Account | Configuration | Purpose |
-|---|---|---|
-| `baseline` | original ensemble momentum, 15% breaker | control |
-| `wave3` | funding tilt + soft BTC regime + risk management, 20% breaker | treatment |
+| Account | Configuration | Equity | Return |
+|---|---|---|---|
+| `baseline` | original ensemble momentum, 15% breaker | $10,636.97 | **+6.4%** |
+| `wave3` | funding tilt + soft BTC regime + risk management, 20% breaker | $10,940.85 | **+9.4%** |
+| `copytrader` | replay of a Binance lead trader's log (reference, not a strategy) | $104,340.84 | +943% (capacity-limited) |
 
-Both run on $10,000 virtual capital, daily at **05:36 IST**, never resetting. The scheduled task
-has executed successfully (`LastTaskResult: 0`) with no errors logged.
+All three run on $10,000 virtual capital, daily at **05:36 IST**, never resetting. The
+Sep 16–20 downtime gap was backfilled from historical closes (`py -m paper.backfill`:
+signals on data available at each date, fills at each day's close, real historical
+funding; the Sep-21 live row's funding trimmed to avoid double-counting, logged as
+`BACKFILL_ADJUST`). The Sep-23 run fired on schedule by itself (05:36:02, rc=0) —
+the scheduler is proven working.
 
 **Day-2 observation:** wave3 earned **+$0.84** in funding while baseline **paid −$1.51** — a ~$5/day
 structural cost gap that is a mechanical consequence of the design, not luck. Turnover also fell
 (6 fills vs 49).
+
+---
+
+## Phase 8 — Wave 6: the "crazy profits" push (2026-09-22/23)
+
+The user pointed at their stock-market lab (TradeForge: five live runners M1–M5) and asked
+for the same intensity on crypto. ~35 more mechanisms on the same harness:
+
+- **TradeForge ports — none survived.** Gap fade/bounce die because crypto never closes
+  (no overnight accumulation to fade); crash fades die at −35% median non-recovery;
+  slow JT momentum is fast momentum dialled down. Same-formula-different-physics —
+  TradeForge's own backlog lesson.
+- **Crypto anomalies — all dead.** Listing fades, liquidation flushes, funding extremes,
+  BTC lead-lag, weekday effects, overnight drift: zero consistent (IS>0.5 + OOS>0.5).
+- **One live wire: open-interest change.** Public `/futures/data` endpoints cover 707
+  symbols × ~30d; OI 3d change → next day IC **+0.057, t=+4.23**. Crowdedness and taker
+  flow carry nothing. Appending OI to wave3 *hurt* on the 30d window (5.47→4.63) —
+  not deployed; harvest daily and revisit with a real archive.
+- **Leverage: 3× notional → 177% CAGR at −76% DD**, 88% inside the 40% budget, positive
+  in all five sub-periods. Live stays 1× through month-end.
+
+## Phase 9 — Wave 7: literature-led hunt (2026-09-23)
+
+Grounded in published work (CTREND trend factor, idiosyncratic-vol literature). 23 more
+mechanisms. Only the CTREND MA-spread stack was consistent (IS 1.24, OOS 0.94) — and
+follow-up showed it correlates **+0.58** with momentum, adds nothing in a blend
+(1.40 vs 1.40), and burns 2.3× turnover (negative at 20+10 bps). **Momentum in
+disguise — not appended.** Total: **~108 mechanisms, 1 live book.**
 
 ---
 

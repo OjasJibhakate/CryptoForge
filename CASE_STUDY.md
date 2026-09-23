@@ -8,7 +8,7 @@
 
 > "I inherited a retail crypto scalping bot that was losing money. Instead of tuning it, I built a
 > research pipeline from scratch to test whether *any* strategy had an edge on 7 years of Binance
-> perpetual data. I tested about 50 strategies across five waves, corrected three separate sources
+> perpetual data. I tested ~108 strategies across seven waves, corrected three separate sources
 > of backtest overstatement, and rejected four machine-learning approaches — including a GPU neural
 > net. What survived was a market-neutral momentum book at Sharpe 1.33 with a 38% max drawdown.
 > The most valuable output wasn't the strategy, it was learning exactly what does *not* work and why."
@@ -82,7 +82,7 @@ Sharpe of **2.5**. But turnover is ~1.5× per bar, so realistic costs turn it in
 alpha is real; the costs consume 100% of it. This is the single cleanest explanation of why retail
 scalping loses.
 
-### 3.2 Five waves of strategy testing
+### 3.2 Seven waves of strategy testing
 
 | Wave | Tested | Outcome |
 |---|---|---|
@@ -91,6 +91,8 @@ scalping loses.
 | 3 | Combinations: funding tilt, BTC regime overlay | **Best configuration** |
 | 4 | Long-biased variants, risk-managed momentum, GPU nets | Long bias hurts; risk mgmt works; GPU fails |
 | 5 | Calendar anomalies, model capacity, live deployment | No calendar alpha; capacity scaling refuted |
+| 6 | 5 live stock strategies ported + 20 crypto anomalies; OI positioning; leverage | Stock edges don't transfer (crypto never closes); OI predicts (archive it); 3× → 177% at −76% DD |
+| 7 | CTREND trend factor, squeeze, lottery, deep value, idiosyncratic vol | Only CTREND consistent — and it's momentum in disguise |
 
 **The three findings that mattered most:**
 
@@ -153,9 +155,11 @@ funding; whole book scaled by a soft BTC regime filter and a volatility overlay.
 Positive in **all five** sub-periods. Margin stress-tested: worst single-name squeeze −11.7% of
 equity; liquidation requires ~99% loss at the leverage actually needed (1.0×, i.e. none).
 
-**Deployed** as two live $10,000 paper accounts (baseline vs improved) on a daily scheduled run at
-05:36 IST, with a Streamlit A/B dashboard and a health check. Day-2: the improved account *earned*
-$0.84 in funding while the baseline *paid* $1.51 — a structural gap that is mechanical, not luck.
+**Deployed** as three $10,000 paper accounts (baseline control, wave3 treatment, plus a
+copy-trader replay as reference) on a daily scheduled run at 05:36 IST, with a Streamlit
+dashboard and a health check. Day 11: baseline **+6.4%**, wave3 **+9.4%**. Day-2: the
+improved account *earned* $0.84 in funding while the baseline *paid* $1.51 — a structural
+gap that is mechanical, not luck.
 
 ---
 
@@ -192,8 +196,9 @@ daily crypto returns, not compute."
 **"How do you know the backtest isn't overfit?"**
 "Three ways. First, a genuine out-of-sample period from 2024 onward that was never used for
 selection. Second, parameter plateaus — the regime filter works at MA 50 through 365, which a
-curve-fit wouldn't. Third, I tested ~50 strategies, so I apply Bonferroni-corrected thresholds and
-describe the result as *marginal*, not proven."
+curve-fit wouldn't. Third, I tested ~108 strategies, so I apply Bonferroni-corrected thresholds and
+describe the result as *marginal*, not proven. Every dead strategy is mapped with its reason in
+research/STRATEGIES.md."
 
 **"What was your biggest mistake?"**
 "I published a flattering number before correcting for survivorship bias. My first backtest ranked
@@ -224,7 +229,8 @@ py -m paper.healthcheck
 py -m streamlit run paper/dashboard.py
 ```
 
-Full findings: [`research/REPORT.md`](research/REPORT.md) (Appendices I–V).
+Full findings: [`research/REPORT.md`](research/REPORT.md) (Appendices I–VII).
+Every strategy mapped: [`research/STRATEGIES.md`](research/STRATEGIES.md).
 Build history: [`TIMELINE.md`](TIMELINE.md).
 
 **Stack:** Python 3.13 · pandas · NumPy · LightGBM · PyTorch (CUDA) · scikit-learn · Streamlit ·

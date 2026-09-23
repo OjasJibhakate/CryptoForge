@@ -3,14 +3,18 @@
 An end-to-end quantitative research and paper-trading system for Binance USDT-M perpetual
 futures — built, tested, honestly measured, and running live on virtual capital.
 
-> **The short version:** I built a research pipeline, tested ~50 strategies across five waves
-> against 7 years of point-in-time data, rejected four separate machine-learning approaches, and
-> ended up with a market-neutral cross-sectional momentum book at **Sharpe 1.33 / −38% max
-> drawdown**. It runs two $10,000 paper accounts on a daily schedule, one of which tracks the
-> original design and one the improved design, so improvements are measured rather than assumed.
+> **The short version:** I built a research pipeline, tested **~108 strategies across seven
+> waves** against 7 years of point-in-time data, rejected four separate machine-learning
+> approaches, ported five live stock-market strategies to crypto (none survived — and the
+> *reason* is the finding), and ended up with a market-neutral cross-sectional momentum
+> book at **Sharpe 1.33 / −38% max drawdown**. It runs $10,000 paper accounts on a daily
+> schedule, so improvements are measured rather than assumed. As of day 11 both live
+> accounts are green: **baseline +6.4%, wave3 +9.4%**.
 
 📄 **[Case study / interview walkthrough →](CASE_STUDY.md)** — problem, approach, findings, and
 what I'd do differently.
+📊 **[Every strategy and failure, mapped →](research/STRATEGIES.md)** — all ~108 mechanisms,
+verdicts, and the reason each died or lived.
 
 ---
 
@@ -79,7 +83,8 @@ never compute. It was signal. Reporting this honestly is the point.
 
 ## The journey
 
-Full detail in [`research/REPORT.md`](research/REPORT.md) (Appendices I–V), the build history in
+Full detail in [`research/REPORT.md`](research/REPORT.md) (Appendices I–VII), every
+mechanism in [`research/STRATEGIES.md`](research/STRATEGIES.md), the build history in
 [`TIMELINE.md`](TIMELINE.md), and an interview-oriented walkthrough in [`CASE_STUDY.md`](CASE_STUDY.md).
 
 | Wave | What was tested | Outcome |
@@ -89,6 +94,8 @@ Full detail in [`research/REPORT.md`](research/REPORT.md) (Appendices I–V), th
 | 3 | Combinations — funding tilt, BTC regime overlay | **Best configuration found** |
 | 4 | Long-biased variants, risk-managed momentum, GPU neural nets | Long bias *hurts*; risk management works; GPU model fails |
 | 5 | Calendar anomalies, capacity scaling, live deployment | No calendar alpha; capacity scaling refuted |
+| 6 | Ported 5 live stock strategies (gap fade/bounce, crash fade, slow momentum) + 20 crypto anomalies; OI positioning; leverage sizing | Stock edges don't transfer (crypto never closes); OI change predicts (t=+4.23, archive it); 3× notional → 177% CAGR at −76% DD |
+| 7 | Literature-led hunt: CTREND trend factor, squeeze, lottery, deep value, idiosyncratic vol | Only CTREND consistent — and it's momentum in disguise (+0.58 corr, adds nothing) |
 
 ### The finding that matters most
 
@@ -134,13 +141,33 @@ research/                   Research pipeline
   hold_loser_simulation.py  The "no stop, hold until it recovers" family, 7 years
   trend_exit_experiment.py  Take-profit vs trend-death exit (let winners run)
   trend_veto.py             Per-coin trend veto on wave3 (rejected)
-  REPORT.md                 Full findings, Appendices I–V
+  crazy_sweep.py            Wave 6: TradeForge ports + anomaly families (all dead)
+  probe_positioning.py      Wave 6: probes public Binance positioning endpoints
+  oi_positioning_test.py    Wave 6: OI-change IC test (t=+4.23, archive it)
+  oi_append_test.py         Wave 6: OI tilt hurts the book (do not append)
+  crazy_leverage.py         Wave 6: 1x/1.5x/2x/3x + vol-target sizing
+  wave7_sweep.py            Wave 7: CTREND, squeeze, lottery, value, ivol (dead)
+  wave7_followup.py         Wave 7: CTR is momentum in disguise
+  STRATEGIES.md             Every mechanism mapped: verdict + reason
+  REPORT.md                 Full findings, Appendices I–VII
 
 crypto_live_bot.py          Original 1-minute scalper (the starting point, and why it failed)
 dashboard.py                Original Streamlit UI
 ```
 
 ---
+
+## Live paper trading (day 11 of 30)
+
+| Account | Equity | Return | Notes |
+|---|---|---|---|
+| `baseline` (control) | $10,636.97 | **+6.4%** | original ensemble momentum |
+| `wave3` (treatment) | $10,940.85 | **+9.4%** | funding tilt + regime + risk management |
+| `copytrader` (reference) | $104,340.84 | +943% | replay of a lead trader's log — capacity-limited, not a forecast |
+
+Runs daily at 05:36 IST via Windows Task Scheduler; a Sep 16–20 downtime gap was
+backfilled from historical closes (`py -m paper.backfill`). Eleven days is a story,
+not evidence — the verdict comes at month-end.
 
 ## Running it
 
@@ -175,8 +202,8 @@ ccxt · requests · Windows Task Scheduler
 
 - **Paper trading only.** No real orders are placed. Shorting carries margin and liquidation risk
   that is modelled but not experienced.
-- **30 days is not evidence.** Two accounts have been live for days, not years. The backtest is
-  the evidence; the live run is a pipeline test.
+- **30 days is not evidence.** Three accounts have been live for 11 days, not years.
+  The backtest is the evidence; the live run is a pipeline test. Judge at month-end.
 - **Funding capture is uncertain.** The headline assumes realistically-capped funding is fully
   captured; a conservative assumption reduces returns materially.
 - **Capacity is retail-scale.** ~54 names at $5–50M ADV. Not scalable to large capital.
