@@ -639,3 +639,128 @@ nothing to learn.
 | GPU MLP / capacity-scaled nets | -0.4 to -1.8 | — | — | rejected |
 
 Files: `calendar_effects.py`, `capacity_test.py`, `gpu_model.py`
+
+---
+
+# Appendix VI — Wave 6: The "Crazy Profits" Push (TradeForge ports + crazy anomalies)
+
+*Session of 2026-09-22/23. The user pointed at their stock-market lab (TradeForge_v4:
+five live runners, M1–M5) and asked for the same intensity here — push limits, hunt
+high-return anomalies, find "crazy profits". So ~35 more mechanisms were tested on the
+same panel/costs/split (IS = <2024 select, OOS = >=2024 judge). Files: `crazy_sweep.py`,
+`oi_positioning_test.py`, `oi_append_test.py`, `crazy_leverage.py`.*
+
+## 1. TradeForge ports — the honest result: the physics does not transfer
+
+| Mechanism | TradeForge (stocks) | Crypto (same shape, daily bars) |
+|---|---|---|
+| M4 gap-UP fade SHORT (+3–10%, top-5) | NET +61bps/day, t=7.9 | IS 0.24, **OOS −0.42** — dead |
+| M5 gap-DOWN bounce LONG (−3–10%, top-5) | NET +70bps/day, t=7.4 | IS −0.20..−0.94, **OOS −0.55..−0.07** — dead |
+| M4+M5 gap book (both sides) | (one book, both sides) | IS −0.39, **OOS −0.92** — dead both ways |
+| M1 crash fade (−8/−10/−15% dip-buy) | named-seller fade, accumulating | IS −0.30..−0.37, **OOS +0.15..+0.49** — nothing consistent |
+| M1 crash + volume surge | (pressure filter) | IS 0.57, OOS 0.23 — clears nothing |
+| M2 JT slow momentum (90/180/252d) | +695bps/q, t=5.46 | IS −0.28..+0.64, **OOS −0.30..+0.29** — dead |
+
+**Why.** TradeForge's gap edges rest on a market that *closes*: overnight retail/FOMO
+chases the open, supply absorbs by close. Crypto never closes — there is no overnight
+accumulation to fade, no open to trade against. The crash-fade fails the same way our
+own `hold_loser_simulation` showed: crypto dips that don't recover go to −35% median.
+And slow JT momentum is simply our fast momentum with the signal dialled down. **Nothing
+from the stock lab survives the venue change. That is a finding, not a failure** — it is
+exactly what TradeForge's own backlog concluded about arena transfer (#32: same formula,
+different physics).
+
+## 2. Crypto-native anomaly families — all dead
+
+| Family | Best variant | IS | OOS | Verdict |
+|---|---|---|---|---|
+| LIST: fade the post-listing pop (first 5/10/21d) | first-5d | −0.43 | −0.04 | dead |
+| LIQ: fade the liquidation flush (deep red + long wick) | flush fade | 0.87 | 0.48 | clears nothing; DD −88% |
+| FUND: fade extreme funding | \|z\|>2 | 1.27 | 0.42 | clears nothing; DD −100% |
+| BTC lead-lag catch-up (1d/3d/5d) | 1d | — | <0.3 | dead (as in wave 2) |
+| DOW: weekend/Monday effects | fade Monday gap | −0.39 | 0.10 | dead |
+| TOD: overnight-drift continuation | hold winners 1d | 0.22 | −0.30 | dead |
+
+**Consistent (IS>0.5 AND OOS>0.5): none.** 26 mechanisms, zero survivors. The funding-fade
+row deserves one line: IS 1.27 looks alive, but OOS 0.42 with a −100% drawdown is the
+same crowded-short squeeze shape that kills every contrarian funding trade — the payout
+is picking up pennies in front of a short squeeze.
+
+## 3. The one live wire: open-interest positioning (IC +0.057, t=+4.23)
+
+Binance's **public** futures-data endpoints (`/futures/data/*`, no key needed) serve the
+last ~30 days of open interest, long/short account ratios, and taker buy/sell ratios for
+**707 of our 864 symbols**. Tested cross-sectionally against next-day returns:
+
+| Signal → next-day return | IC | t | n |
+|---|---|---|---|
+| **OI 3d change** | **+0.057** | **+4.23** | 5,463 |
+| fade crowded longs | +0.001 | +0.07 | 7,644 |
+| taker buy/sell change | −0.009 | −0.68 | 5,725 |
+
+**OI change predicts, positioning does not.** Rising open interest marks where new money
+is entering, and it drifts the next day. Crowdedness (who is long) and aggression (who
+hit market) carry no signal.
+
+**But the append-test says no.** Over the only 30-day window where OI exists, sliced
+after computing all signals on full history (no look-ahead):
+
+| Sleeve (same 21-day window) | Sharpe | CAGR | DD |
+|---|---|---|---|
+| A: wave3 sleeve (mom − funding) | 5.47 | 2962% | −6.4% |
+| B: wave3 + OI tilt | 4.63 | 2697% | −8.4% |
+| C: OI change alone | 0.12 | −12% | −13.8% |
+
+Adding OI **reduces** Sharpe 5.47 → 4.63. And 21–30 days cannot validate anything anyway
+(~30 day-clusters; significance needs |t|>2 on the *portfolio*, not the IC). **Verdict:
+do not append OI to wave3. Revisit only with a harvested OI archive** (pull the public
+endpoint daily from here on; in 6–12 months there will be a real backtest).
+
+## 4. Leverage: the "crazy" number exists — at the "crazy" drawdown
+
+Same wave3 book, same costs, only the sizing changes:
+
+| Construction | Full Sharpe | CAGR | MaxDD | OOS Sharpe | at 40% DD |
+|---|---|---|---|---|---|
+| 1x live book | 1.56 | 53% | −28.8% | 1.83 | 77.0% |
+| 1.5x notional | 1.56 | 84% | −42.1% | 1.83 | 79.2% |
+| 2x notional | 1.56 | 116% | −55.1% | 1.83 | 80.9% |
+| **3x notional** | 1.55 | **177%** | **−75.7%** | 1.83 | **88.3%** |
+| vol-target 0.45–0.80 | 1.41–1.49 | 124–128% | −66% | 1.71–1.89 | 73–76% |
+| RM overlay (live wave3) | 1.41 | 70% | −55.2% | 1.83 | 49.9% |
+
+(Various vol-target/RM rows use a 2x cap; the 1x-book row above is the
+pre-RM wave3 definition, hence the higher at-40%-DD than the live RM book.)
+
+**The leverage finding is real but it is not an edge — it is the budget spent
+differently.** 3x turns 53% into 177% CAGR and −29% into −76% DD. Scaled back into
+the 40% DD budget it keeps 88% vs 77%. Sub-periods stay positive in all five
+(Sharpe 0.51–3.05), worst drawdown −63%.
+
+But three honest brakes: (a) the backtest assumes margin is free and liquidation
+never binds — at 3x a −33% book move is a wipeout, and the short leg's worst day
+was −14.9%; (b) funding/second-order costs at 3x gross are understated here;
+(c) **the live paper accounts run 1x**. Turning the live book to even 1.5–2x
+mid-experiment would contaminate the A/B. **Recommendation: hold 1x through
+month-end; revisit sizing only with the month of live evidence in hand.**
+
+## 5. Net of wave 6
+
+| | Before | After |
+|---|---|---|
+| Mechanisms tested (all waves) | ~50 | **~85** |
+| Consistent new signals | 0 | **0** |
+| Live-wire for later | — | **OI archive (harvest from today)** |
+| Best construction in-budget | wave3 77% | **wave3 3x → 88% at 40% DD (paper only)** |
+
+**The "crazy profits" answer, stated plainly:** no new edge was found — and that is
+the expected outcome, because TradeForge's own ledger says the same thing (40 ideas,
+2 runners; closest calls all died on friction). What *was* found: (a) the venue
+transfer fails for structural reasons, worth knowing before anyone copies stock
+strategies onto perps; (b) OI change is the first non-price signal since order flow
+that moves at all — archive it; (c) the existing book at 2–3x notional is the only
+honest path to triple-digit CAGR, and it costs exactly what theory says it costs.
+
+Files: `crazy_sweep.py`, `probe_positioning.py`, `oi_positioning_test.py`,
+`oi_append_test.py`, `crazy_leverage.py` (+ `research/data/crazy_sweep.csv`,
+`crazy_best_net.csv`)
