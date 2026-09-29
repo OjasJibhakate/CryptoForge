@@ -10,8 +10,11 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FROZEN_FILES = ["strategy.py", "risk.py", "config.py", "market.py", "broker.py"]
-DIAG_FILES = ["engine.py", "store.py"]
+# C1/C2 strategy logic (2026-09-23) + C3 registry and the pre-registered kill rules
+# (amendment 1, 2026-09-30). Any drift invalidates the forward validation.
+FROZEN_FILES = ["strategy.py", "risk.py", "config.py", "market.py", "broker.py",
+                "candidates.py", "killrules.py"]
+DIAG_FILES = ["engine.py", "store.py", "ledger.py", "checkpoint.py", "healthcheck.py", "backfill.py"]
 MANIFEST = os.path.join(HERE, "CANDIDATES_FROZEN.md")
 
 
