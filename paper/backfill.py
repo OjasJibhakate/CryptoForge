@@ -405,7 +405,11 @@ def main():
 
     plans, recon = {}, {}
     for profile in STRATEGY_PROFILES:
-        have, missing, daily = detect_gap(profile, to_date)
+        try:
+            have, missing, daily = detect_gap(profile, to_date)
+        except RuntimeError as e:
+            print(f"[{profile}] {e} (cwd={os.getcwd()}); skipping")
+            continue
         pre = float(daily["equity"].iloc[-1]) if not daily.empty else 0.0
         if missing is None:
             print(f"[{profile}] no gaps through {to_date}, latest equity ${pre:,.2f}")
