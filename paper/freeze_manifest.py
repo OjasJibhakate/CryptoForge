@@ -19,9 +19,11 @@ MANIFEST = os.path.join(HERE, "CANDIDATES_FROZEN.md")
 
 
 def sha(path):
+    """sha256 of the file with CRLF normalized to LF, so git's core.autocrlf checkout
+    conversion on Windows cannot fake a drift. Identical to the raw hash for LF files."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
-        h.update(f.read())
+        h.update(f.read().replace(b"\r\n", b"\n"))
     return h.hexdigest()
 
 
