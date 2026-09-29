@@ -1,8 +1,9 @@
 # CryptoForge Paper Desk
 
 A paper-trading bot that runs the researched strategy — **dollar-neutral cross-sectional momentum**
-on Binance USDT-M perpetual futures — against **persistent $10,000 virtual accounts** for one month.
-Day 11 (2026-09-23): baseline **+6.4%**, wave3 **+9.4%**. Judge at month-end.
+on Binance USDT-M perpetual futures — against **persistent $10,000 virtual accounts**.
+Forward validation runs under [FORWARD_PROTOCOL.md](FORWARD_PROTOCOL.md): frozen rules,
+pre-registered kill rules, no tuning. `py -m paper.checkpoint` is the scoreboard.
 
 No exchange orders are ever placed. It reads public market data only.
 
@@ -21,17 +22,27 @@ After the risk layer below, live exposure starts smaller than the backtest.
 
 ---
 
-## Three desks
+## Four desks
 
 | Profile | What it is | Circuit breaker |
 |---|---|---|
-| `baseline` | ensemble momentum (14/21/30/45/60d, risk-adjusted), 10 long / 10 short | 15% |
-| `wave3` | the same momentum **− funding tilt**, overlaid with a **soft BTC regime filter** (full size above the 200-day MA, half below) and a **risk-managed volatility overlay** | 20% |
+| `baseline` (C1) | ensemble momentum (14/21/30/45/60d, risk-adjusted), 10 long / 10 short | 15% |
+| `wave3` (C2) | the same momentum **− funding tilt**, overlaid with a **soft BTC regime filter** (full size above the 200-day MA, half below) and a **risk-managed volatility overlay** | 20% |
+| `c3` | wave3's rules on a **crypto-only universe** with gross **capped at 1.0×** — the book the backtests actually tested (added 2026-09-30) | 20% |
 | `copytrader` | a **replay of a Binance lead trader's published trade log**, not a live strategy — see below | — |
 
-The two strategy desks are **independent $10,000 paper accounts**, same universe, same costs, same
-risk shell, so the only difference is the signal. State lives in `paper/state/<profile>/`; neither
-account ever resets and they do not share capital.
+The strategy desks are **independent $10,000 paper accounts** with the same costs and risk
+shell. State lives in `paper/state/<profile>/`; no account ever resets and none share capital.
+
+**Why c3 exists.** Binance now lists stock, ETF, metal and oil perpetuals
+(`TRADIFI_PERPETUAL`). The frozen universe filter lets them in, so ~40% of the live
+baseline/wave3 books are TradFi (mostly shorts), which the 2019–2025 backtest never held,
+and wave3 can lever to 2.0× where every backtest capped at 1.0×. c3 removes both deviations.
+
+**Kill rules** (`killrules.py`, frozen): K1 drawdown beyond the backtest's worst → retire;
+K2 live Sharpe statistically below the backtest's at forward day 90/180/365/730 → retire;
+W1 funding income non-positive for 90 days on wave3/c3 → review. The daily health check
+evaluates them; retiring is manual: `py -m paper.engine --profile <p> --retire "<reason>"`.
 
 ### The `copytrader` desk
 
@@ -142,20 +153,20 @@ If the machine was off and days were skipped, run:
 py -m paper.backfill
 ```
 
-It detects dates missing from `daily.csv` and replays each one the way
-`engine.run_once` would have, with three honest differences:
+A missed day is not missing P&L: the live book just held its positions, and the next
+live run marks them at real prices. The backfill answers a separate question — what
+would the frozen rules have done on those days? — and writes the answer to
+`daily_backfill.csv`, `trades_backfill.csv` and `targets_backfill.csv`. **The live
+ledger (`account.json`, `daily.csv`, `trades.csv`, `targets.csv`) is never touched.**
 
-- **Fills execute at the day's last closed daily close**, not the live tick
-  price the engine would have seen (a few bps of difference, unavoidable).
+Each gap starts from the live book the day before it (rebuilt by `ledger.py` and checked
+against the logged cash). Replay differences from a live run:
+
+- **Fills execute at the day's last closed daily close**, not the live tick price.
 - **Signals only use closes available on that date** — same as live, no look-ahead.
-- **Funding uses real historical funding payments** inside each run window, and
-  the first live row after a gap gets its `funding_pnl` trimmed so payments
-  credited by backfilled rows are not counted twice
-  (logged as a `BACKFILL_ADJUST` event — equity stays untouched).
+- **Funding uses real historical funding payments** inside each run window.
 
-Existing live rows are never re-priced. Nothing in `account.json` changes;
-the book still matches the last live run. Backups land in `state_backup_*`;
-`--to YYYY-MM-DD` limits the replay range.
+`--to YYYY-MM-DD` limits the range (default: yesterday UTC).
 
 ### API rate limits
 
@@ -207,8 +218,15 @@ about to run.
 - `account.json` — cash, positions, average entry, high-water mark, breaker state, run count
 - `trades.csv` — every fill: symbol, side, qty, price, notional, fee, slippage, reason
 - `daily.csv` — daily snapshot: equity, cash, gross/net notional, long/short counts,
-  funding P&L, fees, drawdown, vol scale, gross scale
+  funding P&L, fees, drawdown, vol scale, gross scale, plus diagnostics: per-run leg P&L
+  (`long_pnl_day`/`short_pnl_day`), turnover, concentration, `tradfi_share`, ex-ante
+  `beta_btc`, run timing, funding gaps on carried positions. The older `long_pnl`/`short_pnl`
+  columns are unrealized-vs-entry totals, not daily flows.
 - `targets.csv` — the target weights each day (to compare against the backtest)
+- `*_backfill.csv` — hypothetical replays of missed days, kept apart from the live ledger
+
+`py -m paper.checkpoint` and the health check rebuild each book from these files
+(`ledger.py`) and flag it if the ledger no longer reproduces `account.json`.
 
 ---
 
@@ -223,9 +241,10 @@ about to run.
 - **Costs are modelled, not real.** 5 bps fee + 2 bps slippage per side. Real fills on small alts
   and on the short side can be worse.
 - **Shorting carries margin/liquidation risk** that this paper engine does not simulate.
-- **Funding** is applied at the real rates (capped at ±0.75% per period). It is a genuine
-  tailwind (~+15%/yr in backtest) but it is not the source of the edge — the momentum edge
-  stands on its own without it.
+- **Funding** is applied at the real rates (capped at ±0.75% per period). Since 2023 it is
+  most of the backtested edge: momentum alone has not been statistically significant since
+  then, and in 2026 wave3's backtest return is almost all funding (+45%/yr vs +4% from
+  prices). If funding rates normalize, expect much less.
 
 ## Resetting
 

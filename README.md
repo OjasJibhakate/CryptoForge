@@ -8,8 +8,8 @@ futures — built, tested, honestly measured, and running live on virtual capita
 > approaches, ported five live stock-market strategies to crypto (none survived — and the
 > *reason* is the finding), and ended up with a market-neutral cross-sectional momentum
 > book at **Sharpe 1.33 / −38% max drawdown**. It runs $10,000 paper accounts on a daily
-> schedule, so improvements are measured rather than assumed. As of day 11 both live
-> accounts are green: **baseline +6.4%, wave3 +9.4%**.
+> schedule under a frozen, pre-registered forward protocol with written kill rules, so
+> improvements are measured rather than assumed.
 
 📄 **[Case study / interview walkthrough →](CASE_STUDY.md)** — problem, approach, findings, and
 what I'd do differently.
@@ -157,17 +157,22 @@ dashboard.py                Original Streamlit UI
 
 ---
 
-## Live paper trading (day 11 of 30)
+## Live paper trading (as of 2026-09-29, day 16)
 
 | Account | Equity | Return | Notes |
 |---|---|---|---|
-| `baseline` (control) | $10,636.97 | **+6.4%** | original ensemble momentum |
-| `wave3` (treatment) | $10,940.85 | **+9.4%** | funding tilt + regime + risk management |
+| `baseline` (C1, control) | $9,986.54 | **−0.1%** | original ensemble momentum |
+| `wave3` (C2, treatment) | $10,181.01 | **+1.8%** | funding tilt + regime + risk management |
+| `c3` | starts 2026-09-30 | — | wave3 rules, crypto-only universe, 1.0× gross cap |
 | `copytrader` (reference) | $104,340.84 | +943% | replay of a lead trader's log — capacity-limited, not a forecast |
 
-Runs daily at 05:36 IST via Windows Task Scheduler; a Sep 16–20 downtime gap was
-backfilled from historical closes (`py -m paper.backfill`). Eleven days is a story,
-not evidence — the verdict comes at month-end.
+The first forward week (from the 2026-09-23 close) lost 6.1% / 6.9%: the momentum longs
+(recently pumped small caps) reversed while the broad alt market rose. Sixteen days is
+noise for judging an edge (confirming the backtest Sharpe at t=2 takes ~1.7–3 years);
+the pre-registered kill rules in [`paper/FORWARD_PROTOCOL.md`](paper/FORWARD_PROTOCOL.md)
+decide retirement, not the latest week. Runs daily at 05:36 IST via Windows Task Scheduler.
+Missed days (Sep 16–20, and a late run on Sep 27) are left as gaps in the live ledger;
+`py -m paper.backfill` writes hypothetical replays to separate files.
 
 ## Running it
 
