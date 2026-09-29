@@ -1,3 +1,9 @@
 timestamp,kind,message
 2026-09-22 23:27:08,BACKFILL,replayed missing days 2026-09-16..2026-09-20 using historical closes; live rows untouched
 2026-09-22 23:27:09,BACKFILL_ADJUST,[backfill] adjusted 2026-09-21: funding_pnl +108.4901 -> +39.9121 (removed payments already credited to backfilled rows; equity/cash/fills unchanged)
+2026-09-24 00:07:47,MISSING_FUNDING,"6 held symbols had no funding observation this run (treated as 0.0): BCHUSDT,BTRUSDT,DOGEUSDT,SKHYUSDT,SPCXUSDT,WLDUSDT"
+2026-09-25 00:07:34,MISSING_FUNDING,"7 held symbols had no funding observation this run (treated as 0.0): ASTERUSDT,CRCLUSDT,DRAMUSDT,ETHUSDT,PENGUUSDT,RAYSOLUSDT,SUIUSDT"
+2026-09-26 00:07:36,MISSING_FUNDING,"4 held symbols had no funding observation this run (treated as 0.0): AAVEUSDT,BTRUSDT,HYPEUSDT,龙虾USDT"
+2026-09-27 23:40:08,MISSING_FUNDING,"13 held symbols had no funding observation this run (treated as 0.0): ASTERUSDT,BRUSDT,FILUSDT,LITUSDT,LSKUSDT,ONEUSDT,PENGUUSDT,QQQUSDT,SAMSUNGUSDT,SNXXUSDT"
+2026-09-28 00:06:25,MISSING_FUNDING,"3 held symbols had no funding observation this run (treated as 0.0): DASHUSDT,ONDOUSDT,QNTUSDT"
+2026-09-29 00:07:48,MISSING_FUNDING,"8 held symbols had no funding observation this run (treated as 0.0): BTWUSDT,DRAMUSDT,HYPEUSDT,LINKUSDT,SKHYNIXUSDT,SNDKUSDT,SOLUSDT,TSLAUSDT"
