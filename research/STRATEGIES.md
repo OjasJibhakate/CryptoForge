@@ -135,16 +135,26 @@ funding charged. Select on in-sample (<2024), judge on out-of-sample (≥2024).
 | 109–110 | IVO high ivol (± trend) | 0.69/0.47 | −0.09/−0.25 | dead OOS |
 | 111–112 | LVO / BETA low | −0.49/−0.41 | +0.07/−0.44 | dead |
 
+## V4 — pre-registered tests of the open leads ([V4_PREREG.md](V4_PREREG.md) → [V4_RESULTS.md](V4_RESULTS.md))
+
+| # | Strategy | Result | Verdict |
+|---|---|---|---|
+| 113 | 🔴 OI value 3d change, 6 years of archive data | IC −0.0145, t −3.19 (sign reversed vs wave 6) | **#85 was a 30-day fluke** — price reversal in disguise; contracts-only OI predicts nothing |
+| 114 | 🔴 OI L/S daily / weekly | Sharpe −0.70 / +1.16 | weekly fails the combination test and contradicts the mechanism |
+| 115 | 🟡 Hedged carry BTC+ETH (spot long, perp short) | +8.5%/yr on capital, max DD −1.1%, 6/6 years | **real but a bull-market yield** — 2025 +3.4%, 2026 +0.8%: below USDT savings today |
+| 116 | 🔴 Hedged carry, rotating top-5 alts | +6.0%/yr, 3/6 years | costs (5.5%/yr) and flipping funding eat it |
+| 117 | 🔴 OFI weekly sleeve + C3 | +0.19 / −0.68 Sharpe by half | lowers drawdown only |
+
 ---
 
 ## Scoreboard
 
 | | Count |
 |---|---|
-| Mechanisms tested | **~108** |
-| Live (in the book) | 3 (momentum, funding tilt, regime+RM) |
-| Real but shelved (OI, OFI level) | 2 |
-| Dead | ~103 |
+| Mechanisms tested | **~117** (+ V2/V3 pre-registered sweeps) |
+| Live (in the book) | 3 (momentum, funding tilt, regime+RM); C3 runs them crypto-only at 1.0× |
+| Real but shelved (OFI level; hedged BTC/ETH carry at today's funding) | 2 |
+| Dead | ~110 |
 
 *The kill rate is the credential. Anyone can show a backtest that worked; this file
 shows ~103 that didn't, with the reason attached to each.*
