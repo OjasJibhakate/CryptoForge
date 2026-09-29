@@ -7,3 +7,4 @@ timestamp,kind,message
 2026-09-27 23:40:42,MISSING_FUNDING,"2 held symbols had no funding observation this run (treated as 0.0): ASTERUSDT,SPCXUSDT"
 2026-09-28 00:06:53,MISSING_FUNDING,"3 held symbols had no funding observation this run (treated as 0.0): QNTUSDT,SUIUSDT,龙虾USDT"
 2026-09-29 00:08:20,MISSING_FUNDING,"4 held symbols had no funding observation this run (treated as 0.0): BTWUSDT,DRAMUSDT,SKHYNIXUSDT,SNXXUSDT"
+2026-09-29 19:40:06,LEDGER_REPAIR,"moved 5 daily / 110 fill / 100 target rows for 2026-09-16,2026-09-17,2026-09-18,2026-09-19,2026-09-20 to *_backfill.csv; restored funding_pnl 2026-09-21 +90.6564 -> 192.613392; verified max equity error $0.0000 over 12 run dates, positions match"
