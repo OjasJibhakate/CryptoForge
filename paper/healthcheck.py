@@ -12,9 +12,11 @@ try:
 except Exception:
     pass
 
+from paper import candidates, killrules, ledger
 from paper import config as cfg
 
 MAX_STALE_HOURS = 26.0
+OK, WARN, KILL = 0, 1, 2
 
 
 def _read_csv(path):
@@ -27,31 +29,29 @@ def _read_csv(path):
 
 
 def check(profile):
+    """Print a profile's health; return OK / WARN / KILL."""
+    pcfg = candidates.cfg_for(profile)
     files = cfg.files(profile)
     problems = []
     acc = None
     if os.path.exists(files["account"]):
         with open(files["account"], encoding="utf-8") as f:
             acc = json.load(f)
-    else:
-        problems.append("no account.json — engine has never run")
 
+    print(f"--- {profile} : {pcfg['label']} ---")
+    if acc is None:
+        print("  STATUS: WARN — no account.json yet (engine has never run this profile)")
+        return WARN
     daily = _read_csv(files["daily"])
     trades = _read_csv(files["trades"])
-
-    print(f"--- {profile} : {cfg.cfg_for(profile)['label']} ---")
-    if acc is None:
-        print("  STATUS: FAIL — no state")
-        for p in problems:
-            print("   -", p)
-        return False
+    retired = acc.get("retired")
 
     last_run = acc.get("last_run_utc")
     age_h = None
     if last_run:
         age_h = (datetime.now(timezone.utc).replace(tzinfo=None)
                  - datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S")).total_seconds() / 3600.0
-        if age_h > MAX_STALE_HOURS:
+        if age_h > MAX_STALE_HOURS and not retired:
             problems.append(f"last run {age_h:.1f}h ago (> {MAX_STALE_HOURS:.0f}h)")
     else:
         problems.append("no last_run_utc")
@@ -62,6 +62,8 @@ def check(profile):
 
     print(f"  runs {acc.get('runs')} | last run {last_run}"
           + (f" ({age_h:.1f}h ago)" if age_h is not None else ""))
+    if retired:
+        print(f"  RETIRED {retired.get('date')}: {retired.get('reason')}")
     if equity is not None:
         print(f"  equity ${equity:,.2f}  ({(equity/initial-1)*100:+.2f}%)   hwm ${acc.get('high_water_mark',0):,.2f}")
     print(f"  breaker {'ACTIVE' if acc.get('breaker_active') else 'inactive'} | positions {n_pos}")
@@ -75,25 +77,44 @@ def check(profile):
 
     if equity is not None and equity <= 0:
         problems.append("equity <= 0")
-    if n_pos == 0 and cfg.cfg_for(profile).get("kind") != "copy_sim":
+    if n_pos == 0 and pcfg.get("kind") != "copy_sim" and not retired:
         problems.append("no open positions")
+
+    severity = OK
+    if pcfg.get("kind") == "strategy":
+        v = ledger.verify(profile)
+        print(f"  ledger: {'reconciles' if v['ok'] else 'DOES NOT RECONCILE'} "
+              f"(max equity error ${v['max_err']:.4f} over {v['n']} runs, "
+              f"positions {'match' if v['positions_match'] else 'DIFFER'})")
+        if not v["ok"]:
+            problems.append("ledger does not rebuild account.json — see paper/ledger.py")
+        if not daily.empty:
+            k = killrules.evaluate(profile, daily, acc)
+            print(f"  kill rules: {k['status']}")
+            for ln in k["lines"]:
+                print(f"     {ln}")
+            if k["status"] == "KILL":
+                print(f"  !!! KILL RULE TRIGGERED — retire with: "
+                      f"py -m paper.engine --profile {profile} --retire \"<rule, date>\"")
+                severity = KILL
+            elif k["status"] == "WARN":
+                problems.append("kill-rule warning (W1)")
 
     if problems:
         for p in problems:
             print("   !", p)
-        print("  STATUS: WARN")
-        return False
-    print("  STATUS: OK")
-    return True
+        severity = max(severity, WARN)
+    print("  STATUS:", {OK: "OK", WARN: "WARN", KILL: "KILL"}[severity])
+    return severity
 
 
 def main():
     print("=" * 64)
     print("CRYPTOFORGE PAPER ENGINE — HEALTH CHECK")
     print("=" * 64)
-    ok_all = True
-    for p in cfg.PROFILES:
-        ok_all &= check(p)
+    worst = OK
+    for p in candidates.ALL_PROFILES:
+        worst = max(worst, check(p))
         print()
     err = os.path.join(os.path.dirname(cfg.BASE_DIR), "logs", "errors.log")
     if os.path.exists(err):
@@ -102,8 +123,8 @@ def main():
             for ln in f.readlines()[-6:]:
                 print("   ", ln.rstrip())
     print("=" * 64)
-    print("OVERALL:", "OK" if ok_all else "WARN")
-    return 0 if ok_all else 1
+    print("OVERALL:", {OK: "OK", WARN: "WARN", KILL: "KILL"}[worst])
+    return worst
 
 
 if __name__ == "__main__":

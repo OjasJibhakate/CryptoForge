@@ -1,21 +1,22 @@
 """Forward-validation checkpoint report. READ-ONLY: never trades, never edits state.
 
-Compares the live/paper run (the clean validation dataset) against the frozen
-historical baseline WITHOUT reclassifying anything. Reports the 9 items:
+Compares each live/paper book against its frozen historical baseline WITHOUT
+reclassifying anything. Reports the 9 protocol items plus ledger integrity and the
+pre-registered kill rules (FORWARD_PROTOCOL.md amendment 1):
 
   1. sample size  2. net performance  3. realized costs  4. realized funding
   5. drawdown  6. concentration  7. execution deviations  8. operational failures
   9. comparison with the frozen historical baseline
 
 Usage:
-    python -m paper.checkpoint                 # full period to date
-    python -m paper.checkpoint --from 2026-09-23   # forward window only
+    python -m paper.checkpoint                    # each book's own forward window
+    python -m paper.checkpoint --from 2026-09-24  # a common window start
 
 Validation language (fixed):
   Historical backtest = positive historical evidence
   2024+ historical OOS = contaminated
-  11-day (pre-freeze) paper = execution evidence only
-  Forward period from --from = clean validation dataset
+  Pre-freeze paper (through 2026-09-23) = execution evidence only
+  Forward period (C1/C2 from 2026-09-24, C3 from its first run) = clean validation data
 """
 import argparse
 import json
@@ -34,15 +35,25 @@ try:
 except Exception:
     pass
 
+from paper import candidates, killrules, ledger
 from paper import config as cfg
 
+# research/c3_backtest.py, realistic execution (drift-inclusive turnover, live funding
+# timing). top5_notional = mean share of gross in the 5 largest positions (same
+# definition as the live top5_share column); top5_pnl = share of total P&L from the
+# 5 best names (TRADEFORGE_AUDIT.md section 9) -- a different quantity, shown only.
 HIST_BASELINE = {
-    "baseline": {"sharpe": 1.17, "cagr": 33.9, "dd": -32.9, "turnover": 0.185,
-                 "fund_bps": 954, "fee_bps": 472, "win": 47.8, "top5": 45.6},
-    "wave3": {"sharpe": 1.56, "cagr": 30.5, "dd": -26.3, "turnover": 0.137,
-              "fund_bps": 1345, "fee_bps": 350, "win": 46.9, "top5": 63.0},
+    "baseline": {"sharpe": 1.14, "cagr": 32.9, "dd": -33.3, "turnover": 0.211,
+                 "fund_bps": 954, "top5_notional": 26.2, "top5_pnl": 45.6},
+    "wave3": {"sharpe": 1.53, "cagr": 29.5, "dd": -26.5, "turnover": 0.153,
+              "fund_bps": 1345, "top5_notional": 26.2, "top5_pnl": 63.0},
+    "c3": {"sharpe": 1.62, "cagr": 31.8, "dd": -26.5, "turnover": 0.153,
+           "fund_bps": 1369, "top5_notional": 26.2, "top5_pnl": None},
 }
 STRESS_MULT = {"fee": 2.0, "slip": 2.5}  # 10bps fee + 5bps slip vs 5+2 base
+ROUTINE_EVENTS = {"BACKFILL", "BACKFILL_ADJUST", "MISSING_FUNDING", "CIRCUIT_BREAKER",
+                  "LEDGER_REPAIR"}
+MIN_RETURNS_FOR_SHARPE = 30
 
 
 def read_csv(path):
@@ -58,129 +69,170 @@ def freeze_ok():
     r = subprocess.run([sys.executable, "paper/freeze_manifest.py", "--check"],
                        capture_output=True, text=True, cwd=os.path.dirname(
                            os.path.dirname(os.path.abspath(__file__))))
-    print(r.stdout.strip())
+    print(r.stdout.rstrip())
     return r.returncode == 0
 
 
-def summarize(profile, fwd_from):
+def _col(df, name, default=np.nan):
+    return pd.to_numeric(df[name], errors="coerce") if name in df.columns else pd.Series(default, index=df.index)
+
+
+def summarize(profile, fwd_from=None):
     f = cfg.files(profile)
+    if not os.path.exists(f["account"]):
+        return None
     acc = json.load(open(f["account"], encoding="utf-8"))
-    daily = read_csv(f["daily"])
-    trades = read_csv(f["trades"])
-    events = read_csv(f["events"])
+    daily, events = read_csv(f["daily"]), read_csv(f["events"])
     if daily.empty:
         return None
-    daily["date"] = pd.to_datetime(daily["date"])
-    fwd = daily[daily["date"] >= pd.Timestamp(fwd_from)].copy() if fwd_from else daily.copy()
+    eq0, eq0_date, fwd = killrules.forward_path(profile, daily, acc, fwd_from)
     if fwd.empty:
         return None
-
-    eq0 = float(daily[daily["date"] < pd.Timestamp(fwd_from)]["equity"].iloc[-1]) \
-        if fwd_from and (daily["date"] < pd.Timestamp(fwd_from)).any() \
-        else float(acc["initial_capital"])
+    start = fwd["date"].min()
     eq1 = float(fwd["equity"].iloc[-1])
-    rets = fwd["equity"].pct_change().dropna()
-    sharpe = float(rets.mean() / rets.std() * np.sqrt(365)) if len(rets) > 1 and rets.std() > 0 else 0.0
-    dd = float((fwd["equity"] / fwd["equity"].cummax() - 1).min())
+    span = max((fwd["date"].max() - eq0_date).days, 1)
+    ann = 365.0 / span
+    path = pd.Series([eq0] + fwd["equity"].astype(float).tolist())
+    dd_window = float((path / path.cummax() - 1).min())
+    dd_hwm = eq1 / float(acc.get("high_water_mark", eq0)) - 1.0
+    n_ret = len(path) - 1
+    sharpe = killrules.live_sharpe(eq0, eq0_date, fwd)[0] if n_ret >= MIN_RETURNS_FOR_SHARPE else None
 
-    for c in ["funding_pnl", "fee_pnl", "slip_pnl", "long_pnl", "short_pnl",
-              "spread_pnl", "turnover", "margin_util",
-              "top1_share", "top3_share", "top5_share"]:
-        if c not in fwd.columns:
-            fwd[c] = 0.0
-    if "missing_funding" not in fwd.columns:
-        fwd["missing_funding"] = ""
-    ndays = max((fwd["date"].max() - fwd["date"].min()).days, 1)
-    ann = 365.0 / ndays
-    fund_bps = float(fwd["funding_pnl"].sum() / eq0 * 1e4 * ann)
-    fee_bps = float(fwd["fee_pnl"].sum() / eq0 * 1e4 * ann)
-    slip_bps = float(fwd["slip_pnl"].sum() / eq0 * 1e4 * ann)
-    s_fee = fee_bps * STRESS_MULT["fee"]
-    s_slip = slip_bps * STRESS_MULT["slip"]
+    rec, _ = ledger.replay(profile)
+    rec.index = pd.to_datetime(rec.index)
+    w = rec[rec.index >= start]
+    # Leg P&L: the engine's per-run long/short_pnl_day (diagnostics v2) is exact even when
+    # a date has several runs; dates without it use the ledger replay, which merges a
+    # date's runs (exact for the single-run dates logged before v2).
+    rows = daily.copy()
+    rows["date"] = pd.to_datetime(rows["date"])
+    rows = rows[rows["date"] >= start]
+    lng = sht = 0.0
+    for day, g in rows.groupby("date"):
+        if "long_pnl_day" in g.columns and _col(g, "long_pnl_day").notna().all():
+            lng += float(_col(g, "long_pnl_day").sum())
+            sht += float(_col(g, "short_pnl_day").sum())
+        elif day in w.index:
+            lng += float(w.loc[day, "long_pnl"])
+            sht += float(w.loc[day, "short_pnl"])
+    legs = dict(long=lng, short=sht, fund=float(w["funding"].sum()), fee=float(w["fees"].sum()),
+                slip=float(w["slippage"].sum()))
+    explained = legs["long"] + legs["short"] + legs["fund"] - legs["fee"] - legs["slip"]
+    integrity = ledger.verify(profile)
+    turnover = float((w["traded"] / w["equity"]).mean()) if len(w) else 0.0
 
-    top1 = float(fwd["top1_share"].iloc[-1]) * 100
-    top3 = float(fwd["top3_share"].iloc[-1]) * 100
-    top5 = float(fwd["top5_share"].iloc[-1]) * 100
-    miss = fwd[fwd["missing_funding"].astype(str).str.len() > 0]
-    brk = int(fwd["breaker"].sum()) if "breaker" in fwd.columns else 0
-    evts = events[pd.to_datetime(events["timestamp"], errors="coerce")
-                  >= pd.Timestamp(fwd_from)] if (not events.empty and fwd_from) else events
-    fails = evts[~evts["kind"].isin(["BACKFILL", "BACKFILL_ADJUST", "MISSING_FUNDING",
-                                     "CIRCUIT_BREAKER"])] if not evts.empty else evts
-    dev = ""
-    if not fwd.empty and fwd["date"].duplicated().any():
-        dev += "duplicate daily rows; "
-    gap = fwd["date"].diff().dt.days
-    if (gap > 2).any(skipna=True):
-        dev += f"date gap {int(gap.max())}d; "
-    return dict(profile=profile, n=len(fwd), days=ndays, eq0=eq0, eq1=eq1,
-                ret=(eq1 / eq0 - 1) * 100, sharpe=sharpe, dd=dd * 100,
-                long=float(fwd["long_pnl"].sum()), short=float(fwd["short_pnl"].sum()),
-                spread=float(fwd["spread_pnl"].sum()),
-                fund=float(fwd["funding_pnl"].sum()), fee=float(fwd["fee_pnl"].sum()),
-                slip=float(fwd["slip_pnl"].sum()),
-                fund_bps=fund_bps, fee_bps=fee_bps, slip_bps=slip_bps,
-                s_fee=s_fee, s_slip=s_slip,
-                turnover=float(fwd["turnover"].mean()),
-                margin=float(fwd["margin_util"].iloc[-1]) if "margin_util" in fwd else 0.0,
-                top1=top1, top3=top3, top5=top5,
-                miss_days=len(miss), breaker_days=brk,
-                n_events=len(evts) if evts is not None else 0,
-                n_fails=len(fails) if fails is not None else 0,
-                dev=dev or "none detected")
+    last = fwd.iloc[-1]
+    top = {k: float(_col(fwd, f"{k}_share").iloc[-1]) * 100 for k in ("top1", "top3", "top5")}
+    tradfi = float(_col(fwd, "tradfi_share").iloc[-1]) * 100
+    beta = float(_col(fwd, "beta_btc").iloc[-1])
+
+    dev = []
+    full = daily.copy()
+    full["date"] = pd.to_datetime(full["date"])
+    fw_full = full[full["date"] >= start]
+    if fw_full["date"].duplicated().any():
+        dev.append(f"{int(fw_full['date'].duplicated().sum())} duplicate daily rows")
+    gaps = fwd["date"].diff().dt.days
+    if (gaps > 1).any():
+        dev.append(f"missed days: {int((gaps - 1).clip(lower=0).sum())} (longest gap {int(gaps.max())}d)")
+    run_ts = pd.to_datetime(fwd["run_utc"], errors="coerce") if "run_utc" in fwd.columns \
+        else pd.Series(pd.NaT, index=fwd.index)
+    run_ts = run_ts.fillna(pd.Series(rec["run_ts"].reindex(fwd["date"]).values, index=fwd.index))
+    prev_ts = rec["run_ts"][rec.index < start]
+    seq = pd.concat([prev_ts.tail(1), pd.Series(run_ts.values)], ignore_index=True).dropna()
+    hrs = seq.diff().dt.total_seconds().dropna() / 3600.0
+    odd = hrs[(hrs < 12) | (hrs > 36)]
+    if len(odd):
+        dev.append(f"{len(odd)} irregular run intervals ({', '.join(f'{h:.1f}h' for h in odd)})")
+    miss_new = fwd["missing_funding_held"].astype(str).replace("nan", "") \
+        if "missing_funding_held" in fwd.columns else pd.Series("", index=fwd.index)
+    n_v2 = int(_col(fwd, "hours_since_prev").notna().sum()) if "hours_since_prev" in fwd.columns else 0
+    miss_days = int((miss_new.str.len() > 0).sum())
+
+    evts = events[pd.to_datetime(events["timestamp"], errors="coerce") >= start] if not events.empty else events
+    fails = evts[~evts["kind"].isin(ROUTINE_EVENTS)] if not evts.empty else evts
+    return dict(profile=profile, acc=acc, start=start, eq0=eq0, eq0_date=eq0_date, eq1=eq1,
+                n=len(fwd), span=span, ret=(eq1 / eq0 - 1) * 100, sharpe=sharpe, n_ret=n_ret,
+                legs=legs, explained=explained, actual=eq1 - eq0, integrity=integrity,
+                fund_bps=legs["fund"] / eq0 * 1e4 * ann, fee_bps=legs["fee"] / eq0 * 1e4 * ann,
+                slip_bps=legs["slip"] / eq0 * 1e4 * ann, turnover=turnover,
+                dd_window=dd_window * 100, dd_hwm=dd_hwm * 100,
+                breaker_days=int(_col(fwd, "breaker", 0).sum()),
+                margin=float(_col(fwd, "margin_util").iloc[-1]), top=top, tradfi=tradfi, beta=beta,
+                dev=dev, miss_days=miss_days, n_v2=n_v2, n_events=len(evts), fails=fails,
+                kill=killrules.evaluate(profile, daily, acc))
+
+
+def report(s, h):
+    L = s["legs"]
+    print(f"--- {s['profile']} ({candidates.cfg_for(s['profile'])['label']}) ---")
+    print(f"1. sample: {s['n']} forward rows, {s['span']}d from {s['eq0_date'].date()} close "
+          f"(window starts {s['start'].date()})")
+    sh = f"{s['sharpe']:+.2f}" if s["sharpe"] is not None else \
+        f"n/a ({s['n_ret']} returns < {MIN_RETURNS_FOR_SHARPE})"
+    print(f"2. net: ${s['eq0']:,.2f} -> ${s['eq1']:,.2f} ({s['ret']:+.2f}%), Sharpe {sh}")
+    print(f"   legs (ledger replay): long ${L['long']:+,.2f} | short ${L['short']:+,.2f} | "
+          f"funding ${L['fund']:+,.2f} | fees -${L['fee']:,.2f} | slippage -${L['slip']:,.2f}")
+    print(f"   = ${s['explained']:+,.2f} vs actual ${s['actual']:+,.2f} "
+          f"({'reconciles' if abs(s['explained'] - s['actual']) < 1.0 else 'DOES NOT RECONCILE'})")
+    print(f"3. costs: fees {s['fee_bps']:.0f} + slippage {s['slip_bps']:.0f} bps/yr "
+          f"(stress 10+5: {s['fee_bps'] * STRESS_MULT['fee'] + s['slip_bps'] * STRESS_MULT['slip']:.0f}); "
+          f"turnover {s['turnover']:.3f}/day vs backtest {h['turnover']:.3f}")
+    print(f"4. funding: ${L['fund']:+,.2f} ({s['fund_bps']:+.0f} bps/yr ann.) vs backtest {h['fund_bps']:+.0f}")
+    print(f"5. drawdown: window {s['dd_window']:.2f}% | from account high-water mark {s['dd_hwm']:.2f}% "
+          f"| backtest worst {h['dd']:.1f}% | breaker {s['breaker_days']}d | margin util {s['margin']:.2f}x")
+    flag = "  <-- FLAG: above backtest +10pp" if s["top"]["top5"] > h["top5_notional"] + 10 else ""
+    pnl5 = f"; backtest P&L top-5 {h['top5_pnl']:.1f}% is a different measure" if h["top5_pnl"] else ""
+    print(f"6. concentration (share of gross): top1 {s['top']['top1']:.1f}% / top3 {s['top']['top3']:.1f}% / "
+          f"top5 {s['top']['top5']:.1f}% vs backtest top5 {h['top5_notional']:.1f}%{flag}{pnl5}")
+    if np.isfinite(s["tradfi"]):
+        tf_flag = "  <-- FLAG: C3 must hold 0%" if s["profile"] == "c3" and s["tradfi"] > 0 else \
+            ("  (known deviation: backtest was crypto-only until 2026)" if s["tradfi"] > 0 else "")
+        print(f"   TradFi share {s['tradfi']:.1f}%{tf_flag} | ex-ante BTC beta {s['beta']:+.2f} "
+              f"(backtest ~0.00)")
+    print(f"7. execution deviations: {'; '.join(s['dev']) or 'none'}; carried-position funding gaps "
+          f"on {s['miss_days']} of {s['n_v2']} rows logged since diagnostics v2")
+    v = s["integrity"]
+    print(f"8. operational: {s['n_events']} events, {len(s['fails'])} non-routine"
+          + (f" ({', '.join(s['fails']['kind'].astype(str).unique())})" if len(s['fails']) else "")
+          + f" | ledger {'reconciles' if v['ok'] else 'DOES NOT RECONCILE'} "
+            f"(max equity error ${v['max_err']:.4f}, positions {'match' if v['positions_match'] else 'DIFFER'})")
+    sh9 = f"{s['sharpe']:+.2f}" if s["sharpe"] is not None else "n/a"
+    print(f"9. vs frozen baseline: Sharpe {sh9} vs {h['sharpe']:.2f} | turnover {s['turnover']:.3f} vs "
+          f"{h['turnover']:.3f} | funding {s['fund_bps']:+.0f} vs {h['fund_bps']:+.0f} bps/yr")
+    k = s["kill"]
+    print(f"KILL RULES: {k['status']}")
+    for ln in k["lines"]:
+        print(f"   {ln}")
 
 
 def main():
     ap = argparse.ArgumentParser(description="Forward-validation checkpoint (read-only)")
     ap.add_argument("--from", dest="fwd_from", default=None,
-                    help="forward window start YYYY-MM-DD (default: whole history)")
+                    help="common window start YYYY-MM-DD (default: each book's forward start)")
     a = ap.parse_args()
 
-    print("=" * 72)
+    print("=" * 78)
     print("CRYPTOFORGE FORWARD CHECKPOINT — READ ONLY")
     print(f"generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC"
-          + (f" | forward window from {a.fwd_from}" if a.fwd_from else " | full history"))
-    print("Historical backtest = positive historical evidence | "
-          "2024+ OOS = contaminated | pre-freeze paper = execution evidence only")
-    print("=" * 72)
+          + (f" | window from {a.fwd_from}" if a.fwd_from else " | each book's forward window"))
+    print("Historical backtest = positive historical evidence | 2024+ OOS = contaminated | "
+          "pre-freeze paper = execution evidence only")
+    print("=" * 78)
     print("freeze gate:")
     ok = freeze_ok()
     print()
-
-    for profile in ("baseline", "wave3"):
+    for profile in candidates.strategy_profiles():
         s = summarize(profile, a.fwd_from)
         if s is None:
             print(f"--- {profile}: no forward rows ---\n")
             continue
-        h = HIST_BASELINE[profile]
-        print(f"--- {profile} ({cfg.cfg_for(profile)['label']}) ---")
-        print(f"1. sample: {s['n']} daily rows over {s['days']}d")
-        print(f"2. net: ${s['eq0']:,.2f} -> ${s['eq1']:,.2f} ({s['ret']:+.2f}%), "
-              f"Sharpe {s['sharpe']:.2f}, long ${s['long']:+.2f} / short ${s['short']:+.2f} "
-              f"/ spread ${s['spread']:+.2f}")
-        print(f"3. costs: fees ${s['fee']:.2f} ({s['fee_bps']:.0f}bps/yr) + slippage "
-              f"${s['slip']:.2f} ({s['slip_bps']:.0f}bps/yr); stress 10+5: "
-              f"fees {s['s_fee']:.0f} + slip {s['s_slip']:.0f}bps/yr; turnover {s['turnover']:.3f}/day")
-        print(f"4. funding: ${s['fund']:+.2f} ({s['fund_bps']:+.0f}bps/yr ann.) — "
-              f"{'MATERIAL' if abs(s['fund']) > abs(s['ret']/100*s['eq0'])*0.2 else 'minor'} "
-              f"vs net move")
-        print(f"5. drawdown: {s['dd']:.2f}% (frozen max {h['dd']:.1f}%); "
-              f"breaker active {s['breaker_days']}d; margin util {s['margin']:.2f}x")
-        flag = "  <-- FLAG: concentration above historical baseline" \
-            if s['top5'] > h['top5'] + 10 else ""
-        print(f"6. concentration: top1 {s['top1']:.1f}% / top3 {s['top3']:.1f}% / "
-              f"top5 {s['top5']:.1f}% (historical top5 {h['top5']:.1f}%){flag}")
-        print(f"7. execution deviations: {s['dev']}missing-funding days {s['miss_days']}")
-        print(f"8. operational: {s['n_events']} events, {s['n_fails']} non-routine "
-              f"(non breaker/missing/backfill)")
-        print(f"9. vs frozen baseline: Sharpe {s['sharpe']:.2f} vs {h['sharpe']:.2f} | "
-              f"turnover {s['turnover']:.3f} vs {h['turnover']:.3f} | "
-              f"fund {s['fund_bps']:+.0f} vs {h['fund_bps']:+.0f}bps/yr | "
-              f"top5 {s['top5']:.1f}% vs {h['top5']:.1f}%")
+        report(s, HIST_BASELINE[profile])
         print(f"freeze gate at report time: {'OK' if ok else 'DRIFT — INVALID'}")
         print()
-    print("Month-end is the first checkpoint, not final proof. "
-          "No tuning. No reclassification.")
+    print("A forward window under ~1.5-3 years cannot confirm or reject these edges on returns "
+          "(research: live years needed for t=2). Kill rules K1/K2 are the only pre-registered "
+          "exits. No tuning. No reclassification.")
 
 
 if __name__ == "__main__":
